@@ -1,0 +1,15 @@
+
+services:
+  mensabot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: MensaTelegramBot
+    #volumes:
+    #  - ./your_script.py:/app/your_script.py  # Mount the script for easy updates
+    environment:
+      - TZ=Europe/Berlin  # Set timezone if needed
+      # API Key provided via local only .env file
+      - TELEGRAM_API_KEY=${TELEGRAM_API_KEY}
+    #stdin_open: true  # Keep the container's stdin open
+    #tty: true         # Allocate a pseudo-TTY
