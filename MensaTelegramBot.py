@@ -150,6 +150,11 @@ async def heute(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def morgen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text=parse_for_date(update.effective_chat.id, 1, "de"), parse_mode="HTML")
 
+async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=parse_for_date(update.effective_chat.id, 0, "en"), parse_mode="HTML")
+
+async def tomorrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=parse_for_date(update.effective_chat.id, 1, "en"), parse_mode="HTML")
 
 async def poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -259,7 +264,10 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     send += "- /heute : Zeigt alle heutigen Gerichte. \n \n"
     send += "- /morgen : Zeigt alle Gerichte für den nächsten Tag. \n \n"
     send += "- /poll : Erstellt einen Poll.\nZusätzliche Zeiten als Argument mit Leerzeichen getrennt nach dem Command hinzufügbar.\n"
-    send += "- Argumente zwischen zwei _ werden als Frage des Polls eingesetzt."
+    send += "- Argumente zwischen zwei _ werden als Frage des Polls eingesetzt. \n \n"
+    send += "- /today : Shows every meal availible today. \n \n"
+    send += "- /tomorrow : Shows every meal availible on the next day. \n \n"
+    send += "- /modify : Allows you to change the canteens that are returned when a command is used. "
     await context.bot.send_message(chat_id=update.effective_chat.id, text=send)
 
 if __name__ == '__main__':
@@ -272,6 +280,12 @@ if __name__ == '__main__':
     application.add_handler(start_handler)
 
     start_handler = CommandHandler('morgen', morgen)
+    application.add_handler(start_handler)
+
+    start_handler = CommandHandler('today', today)
+    application.add_handler(start_handler)
+
+    start_handler = CommandHandler('tomorrow', tomorrow)
     application.add_handler(start_handler)
 
     poll_handler = CommandHandler('poll', poll)
