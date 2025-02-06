@@ -7,12 +7,8 @@ import os, sys, datetime, re, logging, pytz
 
 API_KEY = os.environ['TELEGRAM_API_KEY']
 ENDPOINT_URL = 'https://www.stw-thueringen.de/xhr/loadspeiseplan.html'
-CANTEEN_DATA = {46 : 'Mensa', 
-                53: 'Cafeteria',
-                55: 'Nanoteria',
-                57: 'Roentgen'
-                }
-CANTEEN_DEFAULT = [46, 53]
+
+CANTEEN_DEFAULT = ["Mensa", "Cafeteria"]
 user_data = dict()
 
 # matches two digit prices such as 1,23 or 23,41 (hoping for low inflation)
@@ -21,10 +17,29 @@ PRICE_REGEX = re.compile(r'\d{1,2},\d{1,2}')
 CANTEEN_HEADER="\n<b>{canteen}</b>: \n"
 MEAL_TEXT_LAYOUT = "- {meal_name} \n({meal_price}€) {misc} \n"
 
-DAYTIME_NOON = "Mittag: \n"
-DAYTIME_EVENING = "Abend: \n"
-CANTEEN_CLOSED = "Heute gibts hier nichts (╯°□°）╯︵ ┻━┻"
-MESSAGE_EMPTY = "Du hast alle Kantinen abgewählt. :)"
+CANTEEN_DATA = ["Mensa", 
+                "Cafeteria",
+                "Nanoteria",
+                "Roentgen" 
+                ]
+
+TRANSLATIONS = {
+    "noon" : {"en":"Noon: \n", "de":"Mittag: \n"},
+    "evening" : {"en":"Evening: \n", "de":"Abend: \n"},
+    "canteen_closed" : {"en":"The chosen canteens are closed for today", "de":"Heute gibts hier nichts (╯°□°）╯︵ ┻━┻"},
+    "canteen_empty" : {"en":"Change your selection by using /modify", "de":"Du hast alle Kantinen abgewählt. :)"},
+    "vegan" : {"en":"vegan", "de":"Vegan"},
+    "vegetarian" : {"en":"vegetarian", "de":"Vegetarisch"},
+    "vegan_parse" : {"en":"vegan meals (V*)", "de":"Vegane Speisen (V*)"},
+    "vegetarian_parse" : {"en":"vegetarian meals (V)", "de":"Vegetarische Speisen (V)"},
+    "closed_parse" : {"en":"There are no meals offered by this facility on the selected date.", "de":"Zum gewählten Datum werden in dieser Einrichtung keine Essen angeboten."},
+    "price_not_given" : {"en":"no info availible", "de":"nicht angegeben"},
+    "Mensa" : {"en": 597, "de":46},
+    "Cafeteria" : {"en": 599, "de":53},
+    "Nanoteria" : {"en": 601, "de":55},
+    "Roentgen" : {"en": 603, "de":57},
+}
+
 GREEN_CHECKMARK = u'\U00002705'
 RED_CROSS = u'\U0000274C'
 
@@ -37,6 +52,9 @@ def validateParameter():
     if API_KEY == "":
         sys.exit("missing api key")
 
+def translate(key, lang):
+    return TRANSLATIONS.get(key, {}).get(lang, key)
+
 def get_document(canteen_id, date):
     """
     Retrieves a document from a remote server based on the given canteen ID and date.
@@ -45,11 +63,11 @@ def get_document(canteen_id, date):
     return BeautifulSoup(urlopen(ENDPOINT_URL, data=urlencode(post_args).encode('utf-8')).read(), 'lxml')
 
 
-def parse_closed(document):
+def parse_closed(document, language):
     """
     Check if the given document indicates that the establishment is closed for the selected date.
     """
-    return bool(document.find_all('h2', string='Zum gewählten Datum werden in dieser Einrichtung keine Essen angeboten.'))
+    return bool(document.find_all('h2', string=translate("closed_parse", language)))
 
 def parse_meals(document):
     """
@@ -70,7 +88,7 @@ def parse_meals(document):
         if len(name):
             yield (name, misc, prices)
 
-def parse_single_canteen(document, canteen_name):
+def parse_single_canteen(document, canteen_name, language):
     """
     Parses a single canteen document and formats the meal information based on the canteen name.
     """
@@ -85,31 +103,31 @@ def parse_single_canteen(document, canteen_name):
         else:
             noon_amount = -1
         if noon_amount > 0 or noon_amount == -1:
-            retval += DAYTIME_NOON
+            retval += translate("noon", language)
     i = 0
     for (name, misc, prices) in parse_meals(document):
         if i == noon_amount:
             if i > 0:
                 retval += "\n"
-            retval += DAYTIME_EVENING
+            retval += translate("evening", language)
         i += 1
         meal_veg = ""
-        if 'Vegane Speisen (V*)' in misc:
-            meal_veg = "Vegan"
-        elif 'Vegetarische Speisen (V)' in misc:
-            meal_veg = "Vegetarisch"
-        retval += MEAL_TEXT_LAYOUT.format(meal_name=name, meal_price=prices[0] if prices else "nicht angegeben", misc=meal_veg)
+        if translate("vegan_parse", language) in misc:
+            meal_veg = translate("vegan", language)
+        elif translate("vegetarian_parse", language) in misc:
+            meal_veg = translate("vegetarian", language)
+        retval += MEAL_TEXT_LAYOUT.format(meal_name=name, meal_price=prices[0] if prices else translate("price_not_given", language), misc=meal_veg)
 
     return retval
 
-def parse_for_date(chat_id, date_offset):
+def parse_for_date(chat_id, date_offset, language):
     """
     Parses the menu for a given date offset.
     """
     if user_data.get(chat_id) is not None:
         user_canteen = user_data.get(chat_id)
         if not user_canteen:
-            return MESSAGE_EMPTY
+            return translate("canteen_empty", language)
     else:
         user_canteen = CANTEEN_DEFAULT
 
@@ -118,19 +136,20 @@ def parse_for_date(chat_id, date_offset):
     date_berlin = date.astimezone(pytz.timezone('Europe/Berlin')).strftime("%d.%m.%Y")
     retval = ""
     for i in range(len(user_canteen)):
-        document = get_document(user_canteen[i], date_berlin)
-        if not parse_closed(document):
-            retval += parse_single_canteen(document, CANTEEN_DATA.get(user_canteen[i]))
+        document = get_document(translate(user_canteen[i], language), date_berlin)
+        if not parse_closed(document, language):
+            retval += parse_single_canteen(document, user_canteen[i], language)
     if (retval == ""):
-        retval = CANTEEN_CLOSED
+        retval = translate("canteen_closed", language)
     return retval
 
 
 async def heute(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=parse_for_date(update.effective_chat.id, 0), parse_mode="HTML")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=parse_for_date(update.effective_chat.id, 0, "de"), parse_mode="HTML")
 
 async def morgen(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=parse_for_date(update.effective_chat.id, 1), parse_mode="HTML")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=parse_for_date(update.effective_chat.id, 1, "de"), parse_mode="HTML")
+
 
 async def poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -190,19 +209,19 @@ def get_keyboard(chat_id):
     keyboard = [
     ]
 
-    for key in CANTEEN_DATA:
-        if key in data:
+    for i in range(len(CANTEEN_DATA)):
+        if CANTEEN_DATA[i] in data:
             emoji = GREEN_CHECKMARK
         else:
             emoji = RED_CROSS
-        keyboard.append([InlineKeyboardButton(emoji + CANTEEN_DATA.get(key), callback_data=key)])
-    keyboard.append([InlineKeyboardButton("Fertig", callback_data="done")])
+        keyboard.append([InlineKeyboardButton(emoji + CANTEEN_DATA[i], callback_data=CANTEEN_DATA[i])])
+    keyboard.append([InlineKeyboardButton("Fertig / Done", callback_data="done")])
     return InlineKeyboardMarkup(keyboard)
 
 async def modify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id 
     reply_markup = get_keyboard(chat_id)
-    await update.message.reply_text("Bitte auswählen:", reply_markup=reply_markup)
+    await update.message.reply_text("Bitte auswählen: / Please choose:", reply_markup=reply_markup)
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -215,22 +234,22 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await query.message.delete()
         return
     else:
-        key = int(query.data)
+        qdata = str(query.data)
         chat_id = query.message.chat_id
         data = user_data[chat_id]
         
-        if key in data:
-            data.remove(key)
+        if qdata in data:
+            data.remove(qdata)
             changes = " abgewählt."
         else:
-            data.append(key)
+            data.append(qdata)
             changes = " hinzugefügt."
         user_data[chat_id] = data
 
     await query.answer()
 
     reply_markup = get_keyboard(chat_id)
-    await query.edit_message_text("Du hast " + CANTEEN_DATA.get(key) + changes + "\n Bitte auswählen:", reply_markup=reply_markup)
+    await query.edit_message_text("Du hast " + qdata + changes + "\n Bitte auswählen:", reply_markup=reply_markup)
 
 
 
