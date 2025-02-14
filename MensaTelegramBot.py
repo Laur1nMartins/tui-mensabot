@@ -61,7 +61,7 @@ def parse_meals(document):
 
         misc = []
         for misc_category in meal.find_all(class_='splIconMeal'):
-            misc.append(misc_category['title'])
+            misc.append(misc_category['alt'])
 
         prices_element = meal.find_next(class_='mealPreise')
         prices = PRICE_REGEX.findall(prices_element.string) if prices_element else None
