@@ -34,6 +34,7 @@ TRANSLATIONS = {
     "vegetarian_parse" : {"en":"vegetarian meals (V)", "de":"Vegetarische Speisen (V)"},
     "closed_parse" : {"en":"There are no meals offered by this facility on the selected date.", "de":"Zum gewählten Datum werden in dieser Einrichtung keine Essen angeboten."},
     "price_not_given" : {"en":"no info availible", "de":"nicht angegeben"},
+    "error_msg" : {"en": "An error occurred while trying to access the website. \nPlease try again later.", "de": "Es ist ein Fehler aufgetreten. \nBitte versuchen sie es zu einem späteren Zeitpunkt noch einmal."},
     "Mensa" : {"en": 597, "de":46},
     "Cafeteria" : {"en": 599, "de":53},
     "Nanoteria" : {"en": 601, "de":55},
