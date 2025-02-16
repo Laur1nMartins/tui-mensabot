@@ -1,9 +1,11 @@
-from bs4 import BeautifulSoup
+import urllib.error
+from bs4 import BeautifulSoup, ParserRejectedMarkup
 from urllib.request import urlopen
 from urllib.parse import urlencode
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 import os, sys, datetime, re, logging, pytz
+import urllib
 
 API_KEY = os.environ['TELEGRAM_API_KEY']
 ENDPOINT_URL = 'https://www.stw-thueringen.de/xhr/loadspeiseplan.html'
@@ -20,6 +22,8 @@ PRICE_REGEX = re.compile(r'\d{1,2},\d{1,2}')
 
 CANTEEN_HEADER="\n<b>{canteen}</b>: \n"
 MEAL_TEXT_LAYOUT = "- {meal_name} \n({meal_price}€) {misc} \n"
+
+ERROR_MSG = "An error occurred while trying to access the website. \nPlease try again later."
 
 DAYTIME_NOON = "Mittag: \n"
 DAYTIME_EVENING = "Abend: \n"
@@ -42,33 +46,54 @@ def get_document(canteen_id, date):
     Retrieves a document from a remote server based on the given canteen ID and date.
     """
     post_args = [('resources_id', canteen_id),('date', date)]
-    return BeautifulSoup(urlopen(ENDPOINT_URL, data=urlencode(post_args).encode('utf-8')).read(), 'lxml')
-
+    try:
+        return BeautifulSoup(urlopen(ENDPOINT_URL, data=urlencode(post_args).encode('utf-8')).read(), 'lxml')
+    except (ParserRejectedMarkup, urllib.error.HTTPError, urllib.error.URLError) as e:
+        logging.error("Error while getting Document: %s", e)
+        return ERROR_MSG
 
 def parse_closed(document):
     """
     Check if the given document indicates that the establishment is closed for the selected date.
     """
-    return bool(document.find_all('h2', string='Zum gewählten Datum werden in dieser Einrichtung keine Essen angeboten.'))
-
+    if document:
+        return bool(document.find_all('h2', string='Zum gewählten Datum werden in dieser Einrichtung keine Essen angeboten.'))
+    else:
+        logging.warning("No document was parsed")
+        return True
+0
 def parse_meals(document):
     """
     Parses meals from a document and extracts their names, miscellaneous categories, and prices.
     """
     meals = document.find_all(class_='rowMealInner')
+    
+    isEmptyMisc = False
+    isEmptyPrice = False
     for meal in meals:
         name = meal.find_next(class_='mealText').string.strip()
 
         misc = []
-        for misc_category in meal.find_all(class_='splIconMeal'):
-            misc.append(misc_category['alt'])
 
+        for misc_category in meal.find_all(class_='splIconMeal'):
+            alt = misc_category.get('alt')
+            if not alt:
+                isEmptyMisc = True
+            misc.append(alt)
+           
         prices_element = meal.find_next(class_='mealPreise')
+        if not prices_element:
+                isEmptyMisc = True
         prices = PRICE_REGEX.findall(prices_element.string) if prices_element else None
 
         # check for non-empty name
         if len(name):
             yield (name, misc, prices)
+    if isEmptyMisc:
+        logging.error("KeyError in misc_category. Website might have changed.")
+    if isEmptyPrice:
+        logging.error("KeyError in mealPreise. Website might have changed.")
+
 
 def parse_single_canteen(document, canteen_name):
     """
@@ -119,10 +144,12 @@ def parse_for_date(chat_id, date_offset):
     retval = ""
     for i in range(len(user_canteen)):
         document = get_document(user_canteen[i], date_berlin)
+        if document == ERROR_MSG:
+            return ERROR_MSG
         if not parse_closed(document):
             retval += parse_single_canteen(document, CANTEEN_DATA.get(user_canteen[i]))
     if (retval == ""):
-        retval = CANTEEN_CLOSED
+        return CANTEEN_CLOSED
     return retval
 
 
