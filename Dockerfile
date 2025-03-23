@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir beautifulsoup4 lxml python-telegram-bot pytz
 
 # Copy your Python script into the container
+COPY cmds/ /app/
 COPY MensaTelegramBot.py /app/bot.py
 
 # Specify the script to run when the container starts
