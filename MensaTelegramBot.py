@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     cmds = GetCmds()
     for cmd in cmds:
-        logging.info(f"Registering {cmd.getName()}")
+        logging.info(f"Registering /{cmd.getName()}")
         application.add_handler(CommandHandler(cmd.getName(), cmd.handler))
 
     logging.info("Config finished.")

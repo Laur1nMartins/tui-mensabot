@@ -43,7 +43,7 @@ async def handle_message(update: Update, context):
             return await update.message.reply_text(f"Failed to parse {update.message.text} as {date_format}. Try again")
         context.user_data['end'] = t_end
         # Send confirmation
-        await update.message.reply_text(f"Event: {context.user_data.get('name')} @ {context.user_data.get('location')} ({context.user_data['start']} -> {t_end})")
+        await update.message.reply_text(f"Event: {context.user_data.get('name')} @ {context.user_data.get('location')} ({context.user_data['start']} -> {t_end})\n Generating .ics file...")
         # Send ics file
         await generate_ics(update, context)
 
