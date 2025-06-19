@@ -97,24 +97,27 @@ def parse_for_date(chat_id, date_offset):
     """
     Parses the menu for a given date offset.
     """
-    if user_data.get(chat_id) is not None:
-        user_canteen = user_data.get(chat_id)
-        if not user_canteen:
-            return MESSAGE_EMPTY
-    else:
-        user_canteen = CANTEEN_DEFAULT
+    try:
+        if user_data.get(chat_id) is not None:
+            user_canteen = user_data.get(chat_id)
+            if not user_canteen:
+                return MESSAGE_EMPTY
+        else:
+            user_canteen = CANTEEN_DEFAULT
 
 
-    date = datetime.datetime.now().astimezone(datetime.UTC) + datetime.timedelta(days=date_offset)
-    date_berlin = date.astimezone(pytz.timezone('Europe/Berlin')).strftime("%d.%m.%Y")
-    retval = ""
-    for i in range(len(user_canteen)):
-        document = get_document(user_canteen[i], date_berlin)
-        if not parse_closed(document):
-            retval += parse_single_canteen(document, CANTEEN_DATA.get(user_canteen[i]))
-    if (retval == ""):
-        retval = CANTEEN_CLOSED
-    return retval
+        date = datetime.datetime.now().astimezone(datetime.UTC) + datetime.timedelta(days=date_offset)
+        date_berlin = date.astimezone(pytz.timezone('Europe/Berlin')).strftime("%d.%m.%Y")
+        retval = ""
+        for i in range(len(user_canteen)):
+            document = get_document(user_canteen[i], date_berlin)
+            if not parse_closed(document):
+                retval += parse_single_canteen(document, CANTEEN_DATA.get(user_canteen[i]))
+        if (retval == ""):
+            retval = CANTEEN_CLOSED
+        return retval
+    except Exception as e:
+        return "Failed with "+e.message
 
 def get_keyboard(chat_id):
     data = user_data.get(chat_id)
