@@ -29,14 +29,14 @@ async def handle_message(update: Update, context):
     elif step == 'location':
         context.user_data['location'] = update.message.text
         context.user_data['step'] = 'start'
-        await update.message.reply_text(f"Event: {context.user_data.get('name')} @ {context.user_data.get('location')}\nPlease provide the start time (YYYY-MM-DD HH:MM):")
+        await update.message.reply_text(f"Event: {context.user_data.get('name')} @ {context.user_data.get('location')}\nPlease provide the start time in UTC+0 (YYYY-MM-DD HH:MM):")
     elif step == 'start':
         t_start = parse_datetime(update.message.text)
         if not t_start:
             return await update.message.reply_text(f"Failed to parse {update.message.text} as {date_format}. Try again")
         context.user_data['start'] = t_start
         context.user_data['step'] = 'end'
-        await update.message.reply_text(f"Event: {context.user_data.get('name')} @ {context.user_data.get('location')} ({t_start} -> ?)\nPlease provide the end time (YYYY-MM-DD HH:MM):")
+        await update.message.reply_text(f"Event: {context.user_data.get('name')} @ {context.user_data.get('location')} ({t_start} -> ?)\nPlease provide the end time in UTC+0 (YYYY-MM-DD HH:MM):")
     elif step == 'end':
         t_end = parse_datetime(update.message.text)
         if not t_end:
